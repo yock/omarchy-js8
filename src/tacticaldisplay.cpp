@@ -1,13 +1,16 @@
 #include "tacticaldisplay.h"
 
 #include "spectrum.h"
-#include "strokefont.h"
 
 #include <QColor>
-#include <QFile>
+#include <QFont>
+#include <QFontDatabase>
+#include <QFontInfo>
+#include <QFontMetricsF>
 #include <QMutexLocker>
 #include <QOpenGLContext>
 #include <QOpenGLFramebufferObject>
+#include <QPainter>
 
 #include "raylib.h"
 #include "rlgl.h"
@@ -98,6 +101,53 @@ TacticalDisplay::TacticalDisplay(QQuickItem *parent)
     : QQuickFramebufferObject(parent)
 {
     setFlag(ItemHasContents, true);
+    buildFontAtlas();
+}
+
+void TacticalDisplay::buildFontAtlas()
+{
+    // Omarchy stores its monospace choice in fontconfig; Qt's FixedFont is the
+    // same resolution, so this follows `omarchy font set` at startup. TX-02
+    // and similar OpenType fonts are CFF outlines, which stb_truetype cannot
+    // load, so Qt rasterises the atlas and raylib draws the textured quads.
+    QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(64);
+    m_fontFamily = QFontInfo(font).family();
+
+    const QFontMetricsF metrics(font);
+    m_fontPixelSize = 64;
+    m_fontAscent = static_cast<int>(std::ceil(metrics.ascent()));
+    m_fontCapHeight = static_cast<int>(std::ceil(metrics.capHeight()));
+    const int descent = static_cast<int>(std::ceil(metrics.descent()));
+    m_fontCellWidth = static_cast<int>(std::ceil(metrics.horizontalAdvance(QStringLiteral("M")))) + 4;
+    m_fontCellHeight = m_fontAscent + descent + 4;
+    m_fontFirst = 32;
+    m_fontLast = 255;
+    m_fontColumns = 16;
+
+    const int glyphCount = m_fontLast - m_fontFirst + 1;
+    const int rows = (glyphCount + m_fontColumns - 1) / m_fontColumns;
+    QImage image(m_fontColumns * m_fontCellWidth, rows * m_fontCellHeight,
+                 QImage::Format_RGBA8888);
+    image.fill(Qt::transparent);
+
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setFont(font);
+    painter.setPen(Qt::white);
+    for (int i = 0; i < glyphCount; ++i) {
+        const int column = i % m_fontColumns;
+        const int row = i / m_fontColumns;
+        const QChar character(m_fontFirst + i);
+        painter.drawText(QPointF(column * m_fontCellWidth + 2,
+                                 row * m_fontCellHeight + 2 + m_fontAscent),
+                         QString(character));
+    }
+    painter.end();
+
+    m_fontImage = image;
+    ++m_fontGeneration;
+    qWarning("js8: console font %s", qPrintable(m_fontFamily));
 }
 
 void TacticalDisplay::setSource(QObject *source)
@@ -312,6 +362,8 @@ public:
             rebuildPalette();
         if (m_rowsDirty)
             rebuildTexture();
+        if (m_fontDirty)
+            uploadFontTexture();
 
         drawConsole(width, height);
         if (m_helpVisible)
@@ -348,6 +400,20 @@ public:
         m_inputDeviceName = display->m_inputDeviceName;
         m_ticker = display->m_ticker;
 
+        if (display->m_fontGeneration != m_fontGeneration) {
+            m_fontGeneration = display->m_fontGeneration;
+            m_fontImage = display->m_fontImage;
+            m_fontCellWidth = display->m_fontCellWidth;
+            m_fontCellHeight = display->m_fontCellHeight;
+            m_fontAscent = display->m_fontAscent;
+            m_fontCapHeight = display->m_fontCapHeight;
+            m_fontPixelSize = display->m_fontPixelSize;
+            m_fontColumns = display->m_fontColumns;
+            m_fontFirst = display->m_fontFirst;
+            m_fontLast = display->m_fontLast;
+            m_fontDirty = true;
+        }
+
         {
             QMutexLocker locker(&display->m_mutex);
             if (display->m_generation != m_generation) {
@@ -381,12 +447,6 @@ private:
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_MULTISAMPLE);
-
-        QFile fontFile(QStringLiteral(":/fonts/hershey/rowmans.jhf"));
-        if (fontFile.open(QIODevice::ReadOnly))
-            m_fontReady = m_font.load(fontFile.readAll());
-        if (!m_fontReady)
-            qWarning("js8: could not load the Hershey stroke font");
 
         m_pixels.assign(static_cast<std::size_t>(Spectrum::Bins) * TacticalDisplay::Rows * 4, 0);
         m_texture = rlLoadTexture(m_pixels.data(), Spectrum::Bins, TacticalDisplay::Rows,
@@ -458,57 +518,75 @@ private:
         m_rowsDirty = false;
     }
 
+    void uploadFontTexture()
+    {
+        if (m_fontImage.isNull())
+            return;
+        if (m_fontTexture)
+            rlUnloadTexture(m_fontTexture);
+        m_fontTexture = rlLoadTexture(m_fontImage.constBits(), m_fontImage.width(),
+                                      m_fontImage.height(),
+                                      RL_PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, 1);
+        glBindTexture(GL_TEXTURE_2D, m_fontTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        m_fontDirty = false;
+    }
+
     float textWidth(const QString &text, float size) const
     {
-        if (!m_fontReady || size <= 0.0f)
+        if (m_fontTexture == 0 || size <= 0.0f || m_fontCellWidth <= 4)
             return 0.0f;
-        return static_cast<float>(m_font.measure(text)) * size / m_font.capHeight();
+        const float advance = (m_fontCellWidth - 4) * size / m_fontCapHeight;
+        return text.size() * advance;
     }
 
     float drawText(const QString &text, float x, float baseline, float size, Rgba color,
                    float maxX = std::numeric_limits<float>::max())
     {
-        if (!m_fontReady || size <= 0.0f)
+        if (m_fontTexture == 0 || size <= 0.0f || m_fontCellWidth <= 4 || m_fontImage.isNull())
             return x;
 
-        const float scale = size / m_font.capHeight();
-        const float spacing = 2.0f * scale;
-        const float stroke = std::max(1.0f, size * 0.075f);
+        const float scale = size / m_fontCapHeight;
+        const float advance = (m_fontCellWidth - 4) * scale;
+        const float cellWidth = m_fontCellWidth * scale;
+        const float cellHeight = m_fontCellHeight * scale;
+        const float top = baseline - (m_fontAscent + 2) * scale;
+        const float imageWidth = m_fontImage.width();
+        const float imageHeight = m_fontImage.height();
+        const int glyphCount = m_fontLast - m_fontFirst + 1;
         float pen = x;
 
+        rlSetTexture(m_fontTexture);
         for (QChar character : text) {
-            const StrokeGlyph *glyph = m_font.glyph(character);
-            if (!glyph) {
-                pen += size * 0.55f;
+            const int glyph = character.unicode() - m_fontFirst;
+            if (glyph < 0 || glyph >= glyphCount) {
+                pen += advance;
                 continue;
             }
-            const float advance = static_cast<float>(glyph->advance) * scale;
             if (pen + advance > maxX)
                 break;
 
-            for (const StrokePath &path : glyph->paths) {
-                if (path.points.isEmpty())
-                    continue;
-                if (path.points.size() == 1) {
-                    const float px = pen + path.points.first().x() * scale;
-                    const float py = baseline
-                        - (path.points.first().y() - m_font.baseline()) * scale;
-                    fillRect(px - stroke / 2, py - stroke / 2, stroke, stroke, color);
-                    continue;
-                }
-                QPointF previous = path.points.first();
-                for (int i = 1; i < path.points.size(); ++i) {
-                    const QPointF current = path.points.at(i);
-                    drawLine(pen + static_cast<float>(previous.x()) * scale,
-                             baseline - (static_cast<float>(previous.y()) - m_font.baseline()) * scale,
-                             pen + static_cast<float>(current.x()) * scale,
-                             baseline - (static_cast<float>(current.y()) - m_font.baseline()) * scale,
-                             stroke, color);
-                    previous = current;
-                }
-            }
-            pen += advance + spacing;
+            const int column = glyph % m_fontColumns;
+            const int row = glyph / m_fontColumns;
+            const float u0 = column * m_fontCellWidth / imageWidth;
+            const float v0 = row * m_fontCellHeight / imageHeight;
+            const float u1 = (column + 1) * m_fontCellWidth / imageWidth;
+            const float v1 = (row + 1) * m_fontCellHeight / imageHeight;
+
+            rlBegin(RL_QUADS);
+            rlColor4ub(color.r, color.g, color.b, color.a);
+            rlTexCoord2f(u0, v0); rlVertex2f(pen, top);
+            rlTexCoord2f(u0, v1); rlVertex2f(pen, top + cellHeight);
+            rlTexCoord2f(u1, v1); rlVertex2f(pen + cellWidth, top + cellHeight);
+            rlTexCoord2f(u1, v0); rlVertex2f(pen + cellWidth, top);
+            rlEnd();
+
+            pen += advance;
         }
+        rlSetTexture(0);
+        rlDrawRenderBatchActive();
         return pen;
     }
 
@@ -572,9 +650,10 @@ private:
         const float small = 9.0f * u;
         const float tickerSize = 10.0f * u;
         const float legendSize = 8.5f * u;
-        const float topHeight = titleSize + statusSize + 8.0f * u;
+        const float topHeight = titleSize + statusSize + 10.0f * u;
         const float legendHeight = legendSize + 2.0f * u;
-        const float tickerHeight = 4.0f * tickerSize + 7.0f * u;
+        const float tickerLineHeight = tickerSize * 1.55f;
+        const float tickerHeight = 4.0f * tickerLineHeight + 7.0f * u;
         const float right = width - margin;
         const float bottom = height - margin;
         const float tickerTop = bottom - legendHeight - gap - tickerHeight;
@@ -631,7 +710,7 @@ private:
         fillRect(barX, barY, barWidth * static_cast<float>(std::clamp(m_periodProgress, 0.0, 1.0)),
                  barHeight, palette.primary);
 
-        const float row2 = row1 + statusSize + 3.0f * u;
+        const float row2 = row1 + statusSize + 6.0f * u;
         float x2 = margin;
         x2 = drawText(QStringLiteral("DEV"), x2, row2, small, palette.dim) + 6.0f * u;
         x2 = drawText(m_inputDeviceName.isEmpty() ? QStringLiteral("NONE") : m_inputDeviceName,
@@ -717,7 +796,7 @@ private:
         drawText(QStringLiteral("SNR"), margin + 175.0f * u, header, small, palette.dim);
         drawText(QStringLiteral("MESSAGE"), margin + 260.0f * u, header, small, palette.dim);
 
-        const float lineHeight = tickerSize * 1.45f;
+        const float lineHeight = tickerLineHeight;
         if (m_ticker.isEmpty()) {
             drawText(QStringLiteral("NO DECODES"), margin + 260.0f * u, header + lineHeight,
                      tickerSize, palette.dim);
@@ -804,7 +883,6 @@ private:
     }
 
     bool m_ready = false;
-    bool m_fontReady = false;
     QSize m_fboSize;
     unsigned int m_texture = 0;
     std::vector<unsigned char> m_pixels;
@@ -812,7 +890,19 @@ private:
     bool m_paletteDirty = true;
     bool m_rowsDirty = true;
     quint64 m_generation = 0;
-    StrokeFont m_font;
+
+    unsigned int m_fontTexture = 0;
+    QImage m_fontImage;
+    int m_fontCellWidth = 0;
+    int m_fontCellHeight = 0;
+    int m_fontAscent = 0;
+    int m_fontCapHeight = 0;
+    int m_fontPixelSize = 64;
+    int m_fontColumns = 16;
+    int m_fontFirst = 32;
+    int m_fontLast = 255;
+    bool m_fontDirty = true;
+    quint64 m_fontGeneration = 0;
 
     QString m_accent;
     QString m_background;

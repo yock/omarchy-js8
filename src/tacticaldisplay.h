@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QImage>
 #include <QMutex>
 #include <QObject>
 #include <QQuickFramebufferObject>
@@ -113,6 +114,8 @@ private:
 
     static constexpr int Rows = 256;
 
+    void buildFontAtlas();
+
     QObject *m_source = nullptr;
     QMetaObject::Connection m_connection;
     QString m_accent = QStringLiteral("#FFD60A");
@@ -131,6 +134,18 @@ private:
     double m_periodProgress = 0.0;
     QString m_inputDeviceName;
     QVariantList m_ticker;
+
+    QImage m_fontImage;
+    int m_fontCellWidth = 0;
+    int m_fontCellHeight = 0;
+    int m_fontAscent = 0;
+    int m_fontCapHeight = 0;
+    int m_fontPixelSize = 64;
+    int m_fontColumns = 16;
+    int m_fontFirst = 32;
+    int m_fontLast = 255;
+    quint64 m_fontGeneration = 0;
+    QString m_fontFamily;
 
     mutable QMutex m_mutex;
     QVector<QByteArray> m_rows;
