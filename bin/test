@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+
+# Tests need the modem library and its sources, but not raylib.
+MODEM="${GFSK8_MODEM_DIR:-$ROOT/../gfsk8-modem}"
+if [ ! -f "$ROOT/build/deps/gfsk8modem/libgfsk8modem.a" ]; then
+    GFSK8_MODEM_DIR="$MODEM" "$ROOT/bin/build-deps"
+fi
+
+mkdir -p "$ROOT/build/tests"
+cd "$ROOT/build/tests"
+
+qmake6 "$ROOT/tests/js8_tests.pro"
+make -j"$(nproc)"
+QT_QPA_PLATFORM=offscreen ./js8_tests "$@"

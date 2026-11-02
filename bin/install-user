@@ -1,0 +1,21 @@
+#!/bin/sh
+# Install into the user's own bin, applications, and icon directories. No root
+# needed, and it is enough for the Omarchy launcher to find the app.
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+"$ROOT/bin/build"
+
+install -Dm755 "$ROOT/build/js8" "$HOME/.local/bin/js8"
+install -Dm644 "$ROOT/pkgbuild/js8.desktop" "$HOME/.local/share/applications/js8.desktop"
+install -Dm644 "$ROOT/pkgbuild/js8.svg" \
+    "$HOME/.local/share/icons/hicolor/scalable/apps/js8.svg"
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$HOME/.local/share/applications"
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
+
+echo "Installed js8 for $USER. It is in the Omarchy launcher (Super + Space)."

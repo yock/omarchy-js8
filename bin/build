@@ -1,0 +1,56 @@
+#!/bin/sh
+# Build the two static dependencies into build/deps, then build the app.
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+DEPS="$ROOT/build/deps"
+MODEM="${GFSK8_MODEM_DIR:-$ROOT/../gfsk8-modem}"
+
+if [ ! -d "$MODEM/src" ]; then
+    echo "gfsk8-modem not found at $MODEM" >&2
+    echo "Set GFSK8_MODEM_DIR to its checkout, or place it beside this app." >&2
+    exit 1
+fi
+
+mkdir -p "$DEPS/gfsk8modem/obj" "$DEPS/raylib-src"
+
+# ── gfsk8-modem ───────────────────────────────────────────────────────────────
+MODEM_LIB="$DEPS/gfsk8modem/libgfsk8modem.a"
+if [ ! -f "$MODEM_LIB" ] || [ -n "$(find "$MODEM/src" "$MODEM/include" "$MODEM/vendor" -newer "$MODEM_LIB" -print -quit)" ]; then
+    echo "Building gfsk8-modem…"
+    OBJ="$DEPS/gfsk8modem/obj"
+    rm -f "$OBJ"/*.o
+    for file in \
+        JS8.cpp JS8Submode.cpp FrequencyTracker.cpp Varicode.cpp \
+        JSC.cpp JSC_map.cpp JSC_list.cpp DecodedText.cpp api.cpp
+    do
+        g++ -std=c++20 -O2 -fPIC \
+            -I"$MODEM/include" -I"$MODEM/src" -I"$MODEM/vendor" -I"$MODEM/vendor/kissfft" \
+            -c "$MODEM/src/$file" -o "$OBJ/${file%.cpp}.o"
+    done
+    for file in kiss_fft.c kiss_fftr.c; do
+        gcc -O2 -fPIC -I"$MODEM/vendor/kissfft" \
+            -c "$MODEM/vendor/kissfft/$file" -o "$OBJ/${file%.c}.o"
+    done
+    ar rcs "$MODEM_LIB" "$OBJ"/*.o
+fi
+
+# ── raylib ────────────────────────────────────────────────────────────────────
+RAYLIB_LIB="$DEPS/raylib-src/src/libraylib.a"
+if [ ! -f "$RAYLIB_LIB" ]; then
+    if [ ! -f "$DEPS/raylib-src/src/rlgl.h" ]; then
+        echo "Fetching raylib 6.2…"
+        rm -rf "$DEPS/raylib-src"
+        git clone --depth 1 --branch 6.2 https://github.com/raysan5/raylib.git "$DEPS/raylib-src"
+    fi
+    echo "Building raylib…"
+    make -C "$DEPS/raylib-src/src" PLATFORM=PLATFORM_DESKTOP RAYLIB_LIBTYPE=STATIC -j"$(nproc)"
+fi
+
+# ── app ───────────────────────────────────────────────────────────────────────
+mkdir -p "$ROOT/build"
+cd "$ROOT/build"
+qmake6 "$ROOT/js8.pro"
+make -j"$(nproc)"
+
+echo "Built $ROOT/build/js8"

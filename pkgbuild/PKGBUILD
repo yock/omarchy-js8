@@ -1,0 +1,24 @@
+pkgname=js8
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='JS8 waterfall receiver with a raylib spectrum and gfsk8-modem decoding'
+arch=('x86_64' 'aarch64')
+license=('GPL-3.0-only')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'qt6-svg' 'portaudio')
+makedepends=('gcc' 'make' 'git' 'libx11' 'libxrandr' 'libxinerama' 'libxcursor' 'libxi' 'mesa')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  export GFSK8_MODEM_DIR="${GFSK8_MODEM_DIR:-$startdir/../../gfsk8-modem}"
+  ./bin/build
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 build/js8 "$pkgdir/usr/bin/js8"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/js8.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/js8.svg"
+  install -Dm644 "$startdir/js8.desktop" "$pkgdir/usr/share/applications/js8.desktop"
+}

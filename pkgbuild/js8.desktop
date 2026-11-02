@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=JS8
+Name[da]=JS8
+Comment=JS8 waterfall receiver
+Comment[da]=JS8-vandfaldsmodtager
+Exec=js8
+Icon=js8
+Terminal=false
+Categories=Network;
+Keywords=ham;radio;js8;waterfall;digital;
+StartupWMClass=js8
