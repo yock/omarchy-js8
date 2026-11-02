@@ -239,6 +239,14 @@ void Backend::refreshDevices()
         if (m_inputDeviceIndex < 0) {
             stopReceiver();
             setStatus(Status::NoDevice, {}, true);
+        } else if (changed) {
+            // The list order can change when a device is plugged in or out;
+            // reopen the stream so PortAudio is talking to the right device.
+            m_audio.stop();
+            m_spectrumTimer.stop();
+            if (m_decoder)
+                m_decoder->stop();
+            startCapture();
         }
     }
 }
