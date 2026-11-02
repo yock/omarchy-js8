@@ -19,6 +19,7 @@ HEADERS += \
     src/messagemodel.h \
     src/settings.h \
     src/spectrum.h \
+    src/strokefont.h \
     src/theme.h \
     src/translator.h \
     src/waterfallitem.h
@@ -31,6 +32,7 @@ SOURCES += \
     src/messagemodel.cpp \
     src/settings.cpp \
     src/spectrum.cpp \
+    src/strokefont.cpp \
     src/theme.cpp \
     src/translator.cpp \
     src/waterfallitem.cpp

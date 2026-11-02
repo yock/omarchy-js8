@@ -3,6 +3,8 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <QRectF>
+
 #include <algorithm>
 #include <cmath>
 #include <span>
@@ -12,6 +14,7 @@
 #include "gfsk8modem.h"
 #include "settings.h"
 #include "spectrum.h"
+#include "strokefont.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -88,6 +91,33 @@ private slots:
         QCOMPARE(translator.translate("Main", "%n messages", nullptr, 25), QString("%n сообщений"));
         QCOMPARE(Translator::pluralCategory("ar", 11), QString("many"));
         QCOMPARE(Translator::pluralCategory("ja", 1), QString("other"));
+    }
+
+    void strokeFontLoads()
+    {
+        QFile file(QStringLiteral(JS8_SOURCE_DIR "/src/fonts/hershey/rowmans.jhf"));
+        QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(file.fileName()));
+
+        StrokeFont font;
+        QVERIFY(font.load(file.readAll()));
+        QVERIFY(font.glyphCount() >= 95);
+
+        const StrokeGlyph *h = font.glyph('H');
+        QVERIFY(h);
+        QCOMPARE(static_cast<int>(h->paths.size()), 3);
+        QVERIFY(h->advance > 0);
+        QVERIFY(font.measure(QStringLiteral("HELLO")) > 0);
+
+        const StrokeGlyph *space = font.glyph(' ');
+        QVERIFY(space);
+        QVERIFY(space->paths.isEmpty());
+
+        const QRectF bounds = h->bounds();
+        QVERIFY(qAbs(bounds.top() - font.baseline()) < 0.001);
+        QVERIFY(qAbs(bounds.bottom() - font.capHeight()) < 0.001);
+        QVERIFY(font.capHeight() > 0);
+        QVERIFY(font.descent() > 0);
+        QVERIFY(font.lineHeight() > font.capHeight());
     }
 
     void settingsRoundTrip()

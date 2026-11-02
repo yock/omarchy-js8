@@ -114,6 +114,7 @@ real traffic.
 | `src/audio.*` | PortAudio capture, 4:1 FIR decimator, 60 s ring, demo source |
 | `src/decoderworker.*` | Worker thread that runs the gfsk8 decoder once per period |
 | `src/spectrum.*` | 4096-point radix-2 FFT to 1024 bins over 0–3 kHz |
+| `src/strokefont.*` | Parser for the Hershey `.jhf` single-stroke vector font |
 | `src/waterfallitem.*` | `QQuickFramebufferObject` rendered by raylib's rlgl |
 | `src/Main.qml`, components | Layout, theme, shortcuts, help overlay |
 | `src/theme.*`, `src/translator.*` | Live Omarchy accent/rounding and language |
@@ -138,6 +139,18 @@ The demo is built with `gfsk8::pack()` + `gfsk8::modulate()` at 800, 1500, and
 decoded by the real decoder, so it exercises the same path as a radio signal.
 It never pretends to be a received station: the waterfall carries a
 `DEMO SIGNAL` badge and every message has a `DEMO` tag.
+
+## Typography
+
+The tactical console font is **Hershey Roman Simplex**
+(`src/fonts/hershey/rowmans.jhf`), parsed by `src/strokefont.*` and drawn as
+single-stroke polylines rather than filled glyphs. The original Hershey glyphs
+are public domain; the `.jhf` distribution is permissively licensed with the
+acknowledgments reproduced in `src/fonts/hershey/NOTICE` and `LICENSE`.
+
+The font covers ASCII 32–126. The console uses short English/numeric labels
+(`FREQ`, `MODE`, `RX`, `SNR`, `UTC`); a translated UI can live in the settings
+overlay or use a separate text font if full Unicode is needed.
 
 ## Screenshot
 

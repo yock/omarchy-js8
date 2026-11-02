@@ -8,10 +8,12 @@ MODEM = $$ROOT/../gfsk8-modem
 
 INCLUDEPATH += $$ROOT/src $$MODEM/include $$MODEM/src
 DEFINES += QT_DEPRECATED_WARNINGS
+DEFINES += JS8_SOURCE_DIR=\\\"$$ROOT\\\"
 
 HEADERS += \
     $$ROOT/src/settings.h \
     $$ROOT/src/spectrum.h \
+    $$ROOT/src/strokefont.h \
     $$ROOT/src/theme.h \
     $$ROOT/src/translator.h
 
@@ -19,6 +21,7 @@ SOURCES += \
     js8_tests.cpp \
     $$ROOT/src/settings.cpp \
     $$ROOT/src/spectrum.cpp \
+    $$ROOT/src/strokefont.cpp \
     $$ROOT/src/theme.cpp \
     $$ROOT/src/translator.cpp
 
