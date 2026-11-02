@@ -148,6 +148,10 @@ single-stroke polylines rather than filled glyphs. The original Hershey glyphs
 are public domain; the `.jhf` distribution is permissively licensed with the
 acknowledgments reproduced in `src/fonts/hershey/NOTICE` and `LICENSE`.
 
+A quick render of the font (not the app UI yet):
+
+![Hershey Roman Simplex preview](docs/font-preview.png)
+
 The font covers ASCII 32–126. The console uses short English/numeric labels
 (`FREQ`, `MODE`, `RX`, `SNR`, `UTC`); a translated UI can live in the settings
 overlay or use a separate text font if full Unicode is needed.
