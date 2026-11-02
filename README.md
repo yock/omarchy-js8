@@ -6,7 +6,8 @@ A small JS8 receiver for Omarchy: audio from a radio interface, a full-screen
 vector console drawn with raylib, and JS8 Normal decodes from
 [gfsk8-modem](../gfsk8-modem). Qt owns the window and the Omarchy lifecycle;
 the console's vector status strip, spectrum trace, waterfall, ticker, and help
-are drawn by raylib and follow the Omarchy accent live.
+are drawn by raylib, follow the Omarchy accent live, and use Omarchy's
+configured monospaced typeface.
 
 This is a bootstrap, not a JS8Call replacement. It receives and decodes; it
 does not transmit, key a radio, or implement CAT control. Normal (15 s) is the
@@ -18,7 +19,7 @@ only submode wired up so far.
   the modem's 12 kHz, using the same FIR as gfsk8-modem's `js8rx` example.
 - Draws a 0–3 kHz waterfall with a 4096-point FFT, about 44 seconds of history.
 - Draws a vector status strip, live spectrum trace, waterfall frame/grid, and
-  a three-line decode ticker with the Hershey Roman Simplex stroke font.
+  a three-line decode ticker with the Omarchy monospaced font.
 - Decodes JS8 Normal at each 15-second UTC boundary on a worker thread, so the
   waterfall keeps moving while the modem searches.
 - Shows the decoded text, SNR, audio offset, and UTC time, and appends each
@@ -120,8 +121,8 @@ real traffic.
 | `src/audio.*` | PortAudio capture, 4:1 FIR decimator, 60 s ring, demo source |
 | `src/decoderworker.*` | Worker thread that runs the gfsk8 decoder once per period |
 | `src/spectrum.*` | 4096-point radix-2 FFT to 1024 bins over 0–3 kHz |
-| `src/strokefont.*` | Parser for the Hershey `.jhf` single-stroke vector font |
-| `src/tacticaldisplay.*` | Full-screen `QQuickFramebufferObject` vector console rendered by raylib's rlgl |
+| `src/tacticaldisplay.*` | Full-screen `QQuickFramebufferObject` vector console rendered by raylib's rlgl; also builds the Omarchy font atlas |
+| `src/strokefont.*` | Earlier Hershey `.jhf` stroke-font experiment; used by its test, not by the app |
 | `src/Main.qml` | Window, app shortcuts, and the single `TacticalDisplay` item |
 | `src/theme.*`, `src/translator.*` | Live Omarchy accent/rounding and language |
 
@@ -131,7 +132,7 @@ raylib has no supported API for drawing into somebody else's window, so the
 app does not try to run a second GLFW window beside Qt. `TacticalDisplay` is a
 `QQuickFramebufferObject`; its renderer calls raylib's own renderer (`rlgl`)
 with Qt's current OpenGL context and draws the entire console: vector lines,
-the Hershey text, and the waterfall texture. raylib does the visible work, and
+the text, and the waterfall texture. raylib does the visible work, and
 Qt keeps the window, theme, translations, and launcher integration.
 
 The modem runs on its own `QThread` because a full 60-second search can take
@@ -148,28 +149,26 @@ each demo decode is tagged `SIM`.
 
 ## Typography
 
-The tactical console font is **Hershey Roman Simplex**
-(`src/fonts/hershey/rowmans.jhf`), parsed by `src/strokefont.*` and drawn as
-single-stroke polylines rather than filled glyphs. The original Hershey glyphs
-are public domain; the `.jhf` distribution is permissively licensed with the
-acknowledgments reproduced in `src/fonts/hershey/NOTICE` and `LICENSE`.
+The console uses the monospaced font configured in Omarchy
+(`omarchy font current`, currently **TX-02**). Qt resolves the fixed font and
+rasterises it into an atlas; raylib draws the glyphs as textured quads. The
+atlas covers U+0020–U+00FF, which keeps `æ/ø/å` working; console labels remain
+short English/numeric abbreviations, and non-Latin device names may be blank.
+Restart the app after `omarchy font set` to pick up a different face.
 
-A font sample:
+![Omarchy monospace sample](docs/font-preview.png)
 
-![Hershey Roman Simplex preview](docs/font-preview.png)
-
-The font covers ASCII 32–126. The console uses short English/numeric labels
-(`FREQ`, `MODE`, `RX`, `SNR`, `UTC`); a translated UI can live in the settings
-overlay or use a separate text font if full Unicode is needed.
+The earlier Hershey Roman Simplex stroke-font experiment is preserved in
+`src/fonts/hershey/` and `src/strokefont.*`, with its test, but the app no
+longer links or ships it.
 
 ## Screenshot
 
-`docs/screenshot.png` was captured with the fallback accent (`#FFD60A`) and
-made-up demo content, so it does not depend on the current theme. It is the
-fullscreen console after a full waterfall period:
+`docs/screenshot.png` is the fullscreen console after a full waterfall period,
+using the current Omarchy theme and configured monospace font:
 
 ```sh
-HOME=$(mktemp -d) ./build/js8 --demo --screenshot docs/screenshot.png --wait 46
+./build/js8 --demo --screenshot docs/screenshot.png --wait 46
 ```
 
 ## Scope and next steps
