@@ -2,10 +2,11 @@
 
 # JS8
 
-A small JS8 receiver for Omarchy: audio from a radio interface, a live
-waterfall drawn with raylib, and JS8 Normal decodes from
-[gfsk8-modem](../gfsk8-modem). It is a Qt Quick app, so it follows the Omarchy
-accent and window rounding live, and follows Omarchy's language.
+A small JS8 receiver for Omarchy: audio from a radio interface, a full-screen
+vector console drawn with raylib, and JS8 Normal decodes from
+[gfsk8-modem](../gfsk8-modem). Qt owns the window and the Omarchy lifecycle;
+the console's vector status strip, spectrum trace, waterfall, ticker, and help
+are drawn by raylib and follow the Omarchy accent live.
 
 This is a bootstrap, not a JS8Call replacement. It receives and decodes; it
 does not transmit, key a radio, or implement CAT control. Normal (15 s) is the
@@ -16,16 +17,20 @@ only submode wired up so far.
 - Captures the default (or selected) audio input at 48 kHz and decimates it to
   the modem's 12 kHz, using the same FIR as gfsk8-modem's `js8rx` example.
 - Draws a 0–3 kHz waterfall with a 4096-point FFT, about 44 seconds of history.
+- Draws a vector status strip, live spectrum trace, waterfall frame/grid, and
+  a three-line decode ticker with the Hershey Roman Simplex stroke font.
 - Decodes JS8 Normal at each 15-second UTC boundary on a worker thread, so the
   waterfall keeps moving while the modem searches.
 - Shows the decoded text, SNR, audio offset, and UTC time, and appends each
   decode to a log.
 - Includes a synthesized demo signal so you can see the waterfall and decoder
-  work without a radio. Everything it produces is labelled **DEMO**.
+  work without a radio. The status strip says SIM and every demo decode is tagged SIM.
 - Remembers the input device, callsign, grid, dial frequency, and whether the
   receiver was running.
-- Rebuilds the waterfall palette and corners when the Omarchy theme changes,
-  and swaps language files when the Omarchy language changes.
+- Rebuilds the palette and primary vector colour when the Omarchy accent
+  changes. The window title and C++ status line follow the selected language;
+  the console labels are short English/numeric abbreviations. The app opens
+  fullscreen.
 
 ## Keyboard
 
@@ -33,14 +38,15 @@ only submode wired up so far.
 | --- | --- |
 | `Space` | Start or stop the receiver |
 | `D` | Toggle the demo signal |
+| `I` | Cycle the audio input device |
 | `R` | Reload audio input devices |
 | `?` | Show or hide the shortcut list |
 | `Esc` | Close the shortcut list |
 | `Q` | Quit |
 | `Ctrl+Q` | Quit |
 
-Single-key shortcuts are disabled while a text field has focus, so typing a
-callsign or grid square cannot quit the app.
+The console has no text fields; callsign, grid, and the input device are
+stored in `~/.config/js8/settings.json`, and `I` cycles the available inputs.
 
 ## Requirements
 
@@ -115,18 +121,18 @@ real traffic.
 | `src/decoderworker.*` | Worker thread that runs the gfsk8 decoder once per period |
 | `src/spectrum.*` | 4096-point radix-2 FFT to 1024 bins over 0–3 kHz |
 | `src/strokefont.*` | Parser for the Hershey `.jhf` single-stroke vector font |
-| `src/waterfallitem.*` | `QQuickFramebufferObject` rendered by raylib's rlgl |
-| `src/Main.qml`, components | Layout, theme, shortcuts, help overlay |
+| `src/tacticaldisplay.*` | Full-screen `QQuickFramebufferObject` vector console rendered by raylib's rlgl |
+| `src/Main.qml` | Window, app shortcuts, and the single `TacticalDisplay` item |
 | `src/theme.*`, `src/translator.*` | Live Omarchy accent/rounding and language |
 
 ### Why raylib lives inside Qt
 
 raylib has no supported API for drawing into somebody else's window, so the
-app does not try to run a second GLFW window beside Qt. `WaterfallItem` is a
+app does not try to run a second GLFW window beside Qt. `TacticalDisplay` is a
 `QQuickFramebufferObject`; its renderer calls raylib's own renderer (`rlgl`)
-with Qt's current OpenGL context, uploads the waterfall as a texture, and
-draws one textured quad. raylib still does the GL work, and Qt keeps the
-window, theme, translations, and launcher integration.
+with Qt's current OpenGL context and draws the entire console: vector lines,
+the Hershey text, and the waterfall texture. raylib does the visible work, and
+Qt keeps the window, theme, translations, and launcher integration.
 
 The modem runs on its own `QThread` because a full 60-second search can take
 long enough to stutter the waterfall on the GUI thread. `gfsk8::Decoder` is
@@ -137,8 +143,8 @@ not thread-safe, so there is exactly one instance and one decode thread.
 The demo is built with `gfsk8::pack()` + `gfsk8::modulate()` at 800, 1500, and
 2300 Hz, mixed with a noise floor. It starts at each 15-second period and is
 decoded by the real decoder, so it exercises the same path as a radio signal.
-It never pretends to be a received station: the waterfall carries a
-`DEMO SIGNAL` badge and every message has a `DEMO` tag.
+It never pretends to be a received station: the status strip says `SIM` and
+each demo decode is tagged `SIM`.
 
 ## Typography
 
@@ -148,7 +154,7 @@ single-stroke polylines rather than filled glyphs. The original Hershey glyphs
 are public domain; the `.jhf` distribution is permissively licensed with the
 acknowledgments reproduced in `src/fonts/hershey/NOTICE` and `LICENSE`.
 
-A quick render of the font (not the app UI yet):
+A font sample:
 
 ![Hershey Roman Simplex preview](docs/font-preview.png)
 
@@ -159,7 +165,8 @@ overlay or use a separate text font if full Unicode is needed.
 ## Screenshot
 
 `docs/screenshot.png` was captured with the fallback accent (`#FFD60A`) and
-made-up demo content, so it does not depend on the current theme:
+made-up demo content, so it does not depend on the current theme. It is the
+fullscreen console after a full waterfall period:
 
 ```sh
 HOME=$(mktemp -d) ./build/js8 --demo --screenshot docs/screenshot.png --wait 46

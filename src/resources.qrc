@@ -1,11 +1,6 @@
 <RCC>
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
-        <file alias="TopBar.qml">TopBar.qml</file>
-        <file alias="WaterfallPanel.qml">WaterfallPanel.qml</file>
-        <file alias="StationPanel.qml">StationPanel.qml</file>
-        <file alias="MessagesPanel.qml">MessagesPanel.qml</file>
-        <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
         <file alias="fonts/hershey/rowmans.jhf">fonts/hershey/rowmans.jhf</file>
         <file alias="i18n/en.json">i18n/en.json</file>
         <file alias="i18n/da.json">i18n/da.json</file>

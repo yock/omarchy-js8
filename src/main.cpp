@@ -6,7 +6,6 @@
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSGRendererInterface>
 #include <QTimer>
@@ -15,7 +14,7 @@
 #include "backend.h"
 #include "theme.h"
 #include "translator.h"
-#include "waterfallitem.h"
+#include "tacticaldisplay.h"
 
 int main(int argc, char *argv[])
 {
@@ -45,13 +44,11 @@ int main(int argc, char *argv[])
     parser.addOption(waitOption);
     parser.process(app);
 
-    QQuickStyle::setStyle(QStringLiteral("Material"));
-
     // raylib draws through rlgl into a QQuickFramebufferObject, so Qt Quick
     // must be using the OpenGL scene graph backend.
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 
-    qmlRegisterType<WaterfallItem>("Js8", 1, 0, "WaterfallItem");
+    qmlRegisterType<TacticalDisplay>("Js8", 1, 0, "TacticalDisplay");
 
     Translator translator;
     app.installTranslator(&translator);

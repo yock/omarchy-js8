@@ -86,7 +86,7 @@ QString Backend::status() const
     case Status::Listening:
         return tr("Listening on %1").arg(m_statusDetail);
     case Status::Demo:
-        return tr("Demo signal running — no radio input");
+        return tr("Demo signal running - no radio input");
     case Status::InputError:
         return tr("Could not open the audio input: %1").arg(m_statusDetail);
     }
@@ -198,6 +198,13 @@ void Backend::setDemo(bool on)
     }
 }
 
+void Backend::cycleInputDevice()
+{
+    if (m_inputDevices.size() < 2 || m_inputDeviceIndex < 0)
+        return;
+    selectInputDevice((m_inputDeviceIndex + 1) % m_inputDevices.size());
+}
+
 void Backend::selectInputDevice(int index)
 {
     if (index < 0 || index >= m_inputDevices.size() || index == m_inputDeviceIndex)
@@ -254,7 +261,9 @@ void Backend::refreshDevices()
 void Backend::clearMessages()
 {
     m_messages.clear();
+    m_ticker.clear();
     m_lastDecode.clear();
+    emit tickerChanged();
     emit lastDecodeChanged();
 }
 
@@ -358,6 +367,17 @@ void Backend::onDecoded(const QString &text, int snrDb, int frequencyHz, double 
 
     m_messages.add(entry);
     logDecode(entry);
+
+    QVariantMap line;
+    line.insert("time", entry.time);
+    line.insert("frequency", entry.frequencyHz);
+    line.insert("snr", entry.snrDb);
+    line.insert("message", entry.message);
+    line.insert("demo", entry.demo);
+    m_ticker.prepend(line);
+    while (m_ticker.size() > 3)
+        m_ticker.removeLast();
+    emit tickerChanged();
 
     m_lastDecode = text;
     emit lastDecodeChanged();

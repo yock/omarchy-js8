@@ -19,6 +19,8 @@ class Backend : public QObject {
     Q_PROPERTY(QAbstractItemModel *messages READ messages CONSTANT)
     Q_PROPERTY(QStringList inputDevices READ inputDevices NOTIFY inputDevicesChanged)
     Q_PROPERTY(int inputDeviceIndex READ inputDeviceIndex NOTIFY inputDeviceChanged)
+    Q_PROPERTY(QString inputDeviceName READ inputDeviceName NOTIFY inputDeviceChanged)
+    Q_PROPERTY(QVariantList ticker READ ticker NOTIFY tickerChanged)
     Q_PROPERTY(bool monitoring READ monitoring NOTIFY monitoringChanged)
     Q_PROPERTY(bool demo READ demo NOTIFY demoChanged)
     Q_PROPERTY(bool error READ error NOTIFY statusChanged)
@@ -39,6 +41,8 @@ public:
     QAbstractItemModel *messages() { return &m_messages; }
     QStringList inputDevices() const { return m_inputDevices; }
     int inputDeviceIndex() const { return m_inputDeviceIndex; }
+    QString inputDeviceName() const { return m_audio.deviceNameAt(m_inputDeviceIndex); }
+    QVariantList ticker() const { return m_ticker; }
     bool monitoring() const { return m_monitoring; }
     bool demo() const { return m_demo; }
     bool error() const { return m_error; }
@@ -55,6 +59,7 @@ public:
     Q_INVOKABLE void toggleMonitor();
     Q_INVOKABLE void setDemo(bool on);
     Q_INVOKABLE void selectInputDevice(int index);
+    Q_INVOKABLE void cycleInputDevice();
     Q_INVOKABLE void refreshDevices();
     Q_INVOKABLE void clearMessages();
     Q_INVOKABLE void saveSettings();
@@ -67,6 +72,7 @@ signals:
     void spectrumRow(const QByteArray &row);
     void inputDevicesChanged();
     void inputDeviceChanged();
+    void tickerChanged();
     void monitoringChanged();
     void demoChanged();
     void statusChanged();
@@ -108,6 +114,7 @@ private:
 
     QStringList m_inputDevices;
     int m_inputDeviceIndex = -1;
+    QVariantList m_ticker;
     bool m_monitoring = false;
     bool m_demo = false;
     bool m_error = false;

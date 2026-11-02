@@ -1,4 +1,4 @@
-QT += core gui qml quick quickcontrols2
+QT += core gui qml quick
 
 CONFIG += c++20 release
 TARGET = js8
@@ -20,9 +20,9 @@ HEADERS += \
     src/settings.h \
     src/spectrum.h \
     src/strokefont.h \
+    src/tacticaldisplay.h \
     src/theme.h \
     src/translator.h \
-    src/waterfallitem.h
 
 SOURCES += \
     src/main.cpp \
@@ -33,9 +33,9 @@ SOURCES += \
     src/settings.cpp \
     src/spectrum.cpp \
     src/strokefont.cpp \
+    src/tacticaldisplay.cpp \
     src/theme.cpp \
     src/translator.cpp \
-    src/waterfallitem.cpp
 
 RESOURCES += src/resources.qrc
 
